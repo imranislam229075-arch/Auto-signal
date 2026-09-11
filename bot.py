@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 # টেলিগ্রাম বট টোকেন এবং চ্যাট আইডি (পরিবেশের ভ্যারিয়েবল বা সরাসরি এখানে বসাতে পারেন)
 TOKEN = os.getenv("TELEGRAM_TOKEN", "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "@riyafuture)
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "@riyafuture") # এখানে ডাবল কোটেশন যোগ করা হয়েছে
 
 bot = Bot(token=TOKEN)
 
@@ -93,4 +93,3 @@ async def send_automatic_signals():
 
 if __name__ == "__main__":
     asyncio.run(send_automatic_signals())
-
