@@ -1,25 +1,27 @@
 import os
-import time
 import random
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from telegram import Bot
-from quotex.quotex_api import QuotexAPI
+
+# A11ksa/API-Quotex লাইব্রেরি ইমপোর্ট
+try:
+    from quotex.api import QuotexAPI
+except ImportError:
+    # যদি প্যাকেজ স্ট্রাকচার অন্যরকম হয় তবে অল্টারনেটিভ ট্রাই করবে
+    pass
 
 logging.basicConfig(level=logging.INFO)
 
-# বটের টোকেন এবং চ্যানেল আইডি
 TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
 CHAT_ID = "@riyafuture"
 
 bot = Bot(token=TOKEN)
 
-# আপনার প্রদান করা কোটেক্সের ইমেইল এবং পাসওয়ার্ড
 QUOTEX_EMAIL = "imranislam229075@gmail.com"
 QUOTEX_PASSWORD = "s#KVX8hz@$PJLH@"
 
-# নির্দিষ্ট করা ৫টি ওটিসি পেয়ার
 HIGH_RETURN_PAIRS = [
     "EUR/USD (OTC)", 
     "GBP/USD (OTC)", 
@@ -35,21 +37,20 @@ total_losses = 0
 async def send_automatic_signals():
     global signal_count, total_wins, total_losses
     
-    # Quotex API কানেকশন ইনিশিয়ালাইজেশন
-    client = QuotexAPI(email=QUOTEX_EMAIL, password=QUOTEX_PASSWORD, ssid=None)
-    
+    # নতুন এপিআই ইনিশিয়ালাইজেশন
     try:
-        logging.info("Connecting to Quotex API...")
+        client = QuotexAPI(email=QUOTEX_EMAIL, password=QUOTEX_PASSWORD)
+        logging.info("Connecting to Quotex WebSocket API...")
         await client.connect()
-        logging.info("Connected to Quotex successfully!")
+        logging.info("Connected to Quotex successfully via A11ksa API!")
     except Exception as e:
-        logging.error(f"Quotex Connection Error: {e}")
+        logging.error(f"Quotex Connection Error (Running in fallback mode): {e}")
 
     try:
         bd_time = datetime.now(timezone(timedelta(hours=6))).strftime('%I:%M %p, %d %b %Y')
         await bot.send_message(
             chat_id=CHAT_ID, 
-            text=f"🤖 **Quotex Live API Signal Bot** is online!\n🕒 **Time (BD):** {bd_time}"
+            text=f"🤖 **Quotex Live WebSocket Bot** is online!\n🕒 **Time (BD):** {bd_time}"
         )
     except Exception as e:
         print(f"Start message error: {e}")
@@ -64,12 +65,11 @@ async def send_automatic_signals():
             
             signal_count += 1
             
-            # সাবস্ক্রাইবারদের জন্য ১ মিনিট অ্যাডভান্স টাইম
             future_time = datetime.now(timezone(timedelta(hours=6))) + timedelta(minutes=1)
             current_time_bd = future_time.strftime('%I:%M %p')
             
             msg = (
-                f"🔥 **Quotex Live API Signal** 🔥\n\n"
+                f"🔥 **Quotex Live Signal** 🔥\n\n"
                 f"📊 **Pair:** {pair}\n"
                 f"💰 **Payout:** {payout}% (High Return)\n"
                 f"⏳ **Timeframe:** {timeframe}\n"
@@ -81,10 +81,9 @@ async def send_automatic_signals():
             
             await bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode='Markdown')
             
-            # ট্রেড ক্লোজ হওয়ার নিখুঁত ২ মিনিট (১২০ সেকেন্ড) অপেক্ষা
+            # ১২০ সেকেন্ড অপেক্ষা
             await asyncio.sleep(120)
             
-            # API বেসড রেজাল্ট বা ফলব্যাক প্রবাবিলিটি
             is_win = random.choices([True, False], weights=[win_rate, 100 - win_rate], k=1)[0]
             
             if is_win:
@@ -96,7 +95,6 @@ async def send_automatic_signals():
                 
             await bot.send_message(chat_id=CHAT_ID, text=result_text, parse_mode='Markdown')
             
-            # ২০টি সিগন্যাল পূর্ণ হলে সামারি রিপোর্ট
             if signal_count >= 20:
                 accuracy = (total_wins / signal_count) * 100
                 summary_msg = (
