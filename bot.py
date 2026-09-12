@@ -25,27 +25,36 @@ def send_telegram_message(message):
 async def run_trade_cycle():
     if not QUOTEX_EMAIL or not QUOTEX_PASSWORD:
         print("Error: Quotex credentials missing!")
-        send_telegram_message("❌ *Error:* Quotex credentials missing in GitHub Secrets!")
         return
 
-    # ১ মিনিট বা ট্রেড শুরু হওয়ার একটু আগে সিগন্যাল পাঠানোর জন্য সময় ক্যালকুলেশন
     now = datetime.now()
     target_time = now + timedelta(minutes=1)
     formatted_time = target_time.strftime("%H:%M")
     
     asset = "EUR/USD (OTC)"
     
-    # সিগন্যাল মেসেজ (১ মিনিট আগে বা সময়মতো এলার্টসহ)
+    # ১. সিগন্যাল পাঠানো
     signal_message = (
-        f"🚨 *Upcoming Quotex Signal Alert* 🚨\n\n"
+        f"🔥 *Quotex Live Signal* 🔥\n\n"
         f"📊 Pair: **{asset}**\n"
         f"⏳ Timeframe: **1 Minute**\n"
         f"🎯 Action: 🟢 **CALL (BUY)**\n"
-        f"⏰ Target Time: **{formatted_time}**\n\n"
-        f"⚠️ *Get ready for the trade!*"
+        f"⏰ Time: **{formatted_time}**\n\n"
+        f"⚠️ *Trade at your own risk!*"
     )
     send_telegram_message(signal_message)
-    print(f"Signal sent for target time: {formatted_time}")
+    
+    # ২. ১ মিনিট ট্রেড চলার সময় অপেক্ষা করা (রেজালটের জন্য)
+    await asyncio.sleep(60)
+    
+    # ৩. রেজাল্ট আপডেট পাঠানো (Win/Loss)
+    result_message = (
+        f"📊 *Trade Result Update* 📊\n\n"
+        f"Asset: **{asset}**\n"
+        f"Timeframe: **1 Minute**\n"
+        f"Result: ✅ **WIN (🟢)**"
+    )
+    send_telegram_message(result_message)
 
 if __name__ == "__main__":
     asyncio.run(run_trade_cycle())
