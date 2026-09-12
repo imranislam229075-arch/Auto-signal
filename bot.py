@@ -2,7 +2,7 @@ import asyncio
 import os
 import requests
 
-# আপনার টেলিগ্রাম কনফিগারেশন
+# আপনার টেলিগ্রাম কনফিগারেশন.
 TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
 CHAT_ID = "@riyafuture"
 
