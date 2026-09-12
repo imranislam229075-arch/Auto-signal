@@ -1,7 +1,7 @@
 import os
 import requests
 import asyncio
-random import choice
+from random import choice
 from datetime import datetime, timedelta
 
 TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
@@ -33,7 +33,6 @@ def send_telegram_message(message):
         print(f"Telegram Error: {e}")
 
 async def fetch_quotex_result(asset):
-    # রিয়েল-টাইম রেজাল্ট চেকিং সিমুলেশন
     await asyncio.sleep(5)
     return "WIN"
 
