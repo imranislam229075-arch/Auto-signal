@@ -1,5 +1,2 @@
 python-telegram-bot
 websockets
-aiohttp
-playwright
-git+https://github.com/A11ksa/API-Quotex.git
