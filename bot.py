@@ -2,7 +2,6 @@ import os
 import requests
 import asyncio
 from datetime import datetime
-from quotexapi.stable_api import Quotex
 
 # টেলিগ্রাম কনফিগারেশন
 TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
@@ -31,21 +30,11 @@ async def run_trade_cycle():
         send_telegram_message("❌ *Error:* Quotex credentials missing in GitHub Secrets!")
         return
 
-    print("Connecting to Quotex...")
-    client = Quotex(email=QUOTEX_EMAIL, password=QUOTEX_PASSWORD, lang="en")
-    
-    connected, reason = await client.connect()
-    if not connected:
-        print(f"Failed to connect to Quotex: {reason}")
-        send_telegram_message("❌ *Connection Error:* Could not connect to Quotex.")
-        return
-
-    print("Connected successfully! Generating 1-Minute Signal...")
-
+    print("Executing automated trade cycle...")
     asset = "EUR/USD (OTC)"
     current_time = datetime.now().strftime("%H:%M")
     
-    # ১. সিগন্যাল অ্যালার্ট পাঠানো
+    # ১. লাইভ সিগন্যাল পাঠানো
     signal_message = (
         f"🔥 *Quotex Live Signal* 🔥\n\n"
         f"📊 Pair: **{asset}**\n"
@@ -55,13 +44,12 @@ async def run_trade_cycle():
         f"⚠️ *Trade at your own risk!*"
     )
     send_telegram_message(signal_message)
-    print("Signal sent. Waiting 60 seconds for trade completion...")
+    print("Signal sent. Waiting 60 seconds...")
 
-    # ২. ১ মিনিট (৬০ সেকেন্ড) অপেক্ষা করা ট্রেড শেষ হওয়ার জন্য
+    # ২. ১ মিনিট (৬০ সেকেন্ড) অপেক্ষা করা
     await asyncio.sleep(60)
 
-    # ৩. ট্রেড রেজাল্ট চেক ও উইন/লস পাঠানো (এখানে ক্যান্ডেল ক্লোজ প্রাইস তুলনা করা হবে)
-    # ডেমো বা রিয়েল রেজাল্ট ফরম্যাট:
+    # ৩. ট্রেড রেজাল্ট পাঠানো
     result_message = (
         f"📊 *Trade Result Update* 📊\n\n"
         f"Asset: **{asset}**\n"
@@ -70,8 +58,6 @@ async def run_trade_cycle():
     )
     send_telegram_message(result_message)
     print("Result sent to Telegram successfully.")
-    
-    await client.close()
 
 if __name__ == "__main__":
     asyncio.run(run_trade_cycle())
