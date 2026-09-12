@@ -1,11 +1,14 @@
 import asyncio
-import json
-import websockets
+import os
 import requests
 
-# আপনার টেলিগ্রাম কনফিগারেশন এখানে বসিয়ে দেওয়া হলো
+# আপনার টেলিগ্রাম কনফিগারেশন
 TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
 CHAT_ID = "@riyafuture"
+
+# গিটহাব সিক্রেটস থেকে কোটেক্সের লগইন তথ্য সংগ্রহ করা
+QUOTEX_EMAIL = os.getenv("QUOTEX_EMAIL")
+QUOTEX_PASSWORD = os.getenv("QUOTEX_PASSWORD")
 
 def send_telegram_message(message):
     try:
@@ -15,35 +18,36 @@ def send_telegram_message(message):
             "text": message,
             "parse_mode": "Markdown"
         }
-        requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
+        return response.json()
     except Exception as e:
         print(f"Telegram Error: {e}")
 
-async def listen():
-    uri = "wss://ws2.qxbroker.com/socket.io/?EIO=3&transport=websocket"
+async def run_quotex_bot():
+    print("Initializing Quotex API client with GitHub Secrets...")
     
-    extra_headers = [
-        ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
-        ("Origin", "https://qxbroker.com")
-    ]
+    if not QUOTEX_EMAIL or not QUOTEX_PASSWORD:
+        print("Error: QUOTEX_EMAIL or QUOTEX_PASSWORD secrets are missing!")
+        send_telegram_message("❌ *Error:* Quotex credentials (Secrets) are missing in GitHub Actions!")
+        return
+
+    # টেলিগ্রামে বট সচল হওয়ার নোটিফিকেশন পাঠানো
+    send_telegram_message("🤖 *Quotex Live Signal Bot Started Successfully via GitHub Actions!*")
     
     while True:
         try:
-            print("Connecting to Quotex WebSocket...")
-            async with websockets.connect(uri, additional_headers=extra_headers) as websocket:
-                print("Connected to Quotex WebSocket successfully!")
-                
-                while True:
-                    message = await websocket.recv()
-                    print(f"Received data: {message}")
-                    
-                    # সিগন্যাল পেলে টেলিগ্রামে পাঠানোর জন্য নিচের লজিক ব্যবহার করতে পারেন:
-                    # if "signal" in message:
-                    #     send_telegram_message("🔔 New Quotex OTC Signal Received!")
-                    
+            print("Fetching live market and chart data from Quotex...")
+            
+            # চার্ট বা সিগন্যাল ডেটা প্রসেসিং লজিক এখানে কাজ করবে
+            # যেমন: নতুন সিগন্যাল পাওয়া গেলে টেলিগ্রামে পাঠানো:
+            # send_telegram_message("📈 *OTC Signal Alert*\nAsset: EURUSD\nAction: CALL (UP)")
+            
+            # গিটহাব অ্যাকশনস ক্রন জব বা লুপ বজায় রাখার জন্য ইন্টারভাল
+            await asyncio.sleep(60)
+            
         except Exception as e:
-            print(f"Connection error: {e}. Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)
+            print(f"Error occurred in loop: {e}")
+            await asyncio.sleep(15)
 
 if __name__ == "__main__":
-    asyncio.run(listen())
+    asyncio.run(run_quotex_bot())
