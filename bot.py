@@ -18,7 +18,7 @@ CHAT_ID = "@riyafuture"
 bot = Bot(token=TOKEN)
 
 QUOTEX_EMAIL = "imranislam229075@gmail.com"
-QUOTEX_PASSWORD = "s#KVX8hz@$PJLH@"
+QUOTEX_PASSWORD = "FQDFFgA9nCaSaMS"
 
 # যাচাই করার জন্য প্রধান ওটিসি পেয়ারগুলোর তালিকা
 ALL_OTC_PAIRS = [
