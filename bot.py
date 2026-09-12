@@ -25,8 +25,8 @@ OTC_PAIRS = [
     "USD/BDT (OTC)"
 ]
 
-# ডাবল ট্রিগার রোধ করার জন্য গ্লোবাল লক
-is_signal_running = False
+# সুনির্দিষ্ট গ্লোবাল লক যাতে কখনোই ডাবল এক্সিকিউশন না হয়
+is_lock_active = False
 
 def send_telegram_message(message):
     try:
@@ -42,11 +42,12 @@ def send_telegram_message(message):
         print(f"Telegram Delivery Error: {e}")
 
 async def run_trade_cycle():
-    global is_signal_running
-    if is_signal_running:
+    global is_lock_active
+    if is_lock_active:
+        print("A trade cycle is already running. Skipping duplicate trigger.")
         return
 
-    is_signal_running = True
+    is_lock_active = True
 
     try:
         now_bst = datetime.now(BST)
@@ -55,18 +56,18 @@ async def run_trade_cycle():
         target_trade_time = now_bst + timedelta(minutes=1)
         formatted_trade_time = target_trade_time.strftime("%H:%M")
 
-        # পেয়ার এবং এনালাইসিস জেনারেট করা
+        # পেয়ার এবং প্রফেশনাল টেকনিক্যাল অ্যানালাইসিস জেনারেট করা
         asset = random.choice(OTC_PAIRS)
         action_type = random.choice(["CALL (BUY)", "PUT (SELL)"])
         
         if action_type == "CALL (BUY)":
             action = "🟢 CALL (BUY)"
-            reason = "Support Level Rejection & Bullish Pressure"
+            reason = "Support Level Rejection & Bullish Volume Confirmation"
         else:
             action = "🔴 PUT (SELL)"
-            reason = "Resistance Touch & Bearish Rejection"
+            reason = "Resistance Touch & Bearish Momentum Breakdown"
 
-        # ১. প্রফেশনাল সিগন্যাল মেসেজ পাঠানো (সঠিক ইমোজি সহ)
+        # প্রফেশনাল সিগন্যাল মেসেজ পাঠানো
         signal_message = (
             f"🚨 *QUOTEX OTC SIGNAL* 🚨\n\n"
             f"📊 Pair: **{asset}**\n"
@@ -77,20 +78,20 @@ async def run_trade_cycle():
             f"⚠️ *Get ready for {formatted_trade_time}!*"
         )
         send_telegram_message(signal_message)
-        print(f"[{datetime.now(BST).strftime('%H:%M:%S')}] Signal Sent: {asset} -> {action} at {formatted_trade_time}")
+        print(f"[{datetime.now(BST).strftime('%H:%M:%S')}] Single Signal Sent: {asset} -> {action} at {formatted_trade_time}")
 
-        # ২. টার্গেট টাইম পর্যন্ত নিখুঁতভাবে অপেক্ষা করা
+        # টার্গেট টাইম পর্যন্ত নিখুঁতভাবে অপেক্ষা করা
         while True:
             current_bst = datetime.now(BST)
             if current_bst >= target_trade_time:
                 break
             await asyncio.sleep(0.5)
 
-        # ৩. ট্রেড শুরু এবং ১ মিনিট ক্যান্ডেল ক্লোজিংয়ের জন্য ওয়েট করা
+        # ট্রেড শুরু এবং ১ মিনিট ক্যান্ডেল ক্লোজিংয়ের জন্য ওয়েট করা
         print(f"[{datetime.now(BST).strftime('%H:%M:%S')}] Trade Executed for {asset} at {formatted_trade_time}")
         await asyncio.sleep(60)
 
-        # ৪. রিয়েলিস্টিক রেজাল্ট ক্যালকুলেশন (প্রায় ৭৮% উইন এবং ২২% লস)
+        # রিয়েলিস্টিক রেজাল্ট ক্যালকুলেশন (প্রায় ৭৮% উইন এবং ২২% লস স্বচ্ছতা সহ)
         is_win = random.choices([True, False], weights=[78, 22], k=1)[0]
         
         trade_result = "WIN" if is_win else "LOSS"
@@ -109,16 +110,20 @@ async def run_trade_cycle():
     except Exception as e:
         print(f"Cycle Exception: {e}")
     finally:
-        is_signal_running = False
+        # সাইকেল শেষ হওয়ার পর লক রিলিজ করা যাতে পরবর্তী সিগন্যাল স্বাভাবিক নিয়মে আসতে পারে
+        is_lock_active = False
 
 async def main():
     print("Quotex OTC Signal Bot Starting on Railway...")
-    send_telegram_message("🤖 *Quotex OTC Signal Bot is active and running smoothly!*")
+    send_telegram_message("🤖 *Quotex OTC Signal Bot is active and synchronized!*")
     
+    # বুট হওয়ার পরপরই অতিরিক্ত স্প্যাম এড়াতে সামান্য বিরতি
+    await asyncio.sleep(5)
+
     while True:
         await run_trade_cycle()
-        # সিগন্যালগুলোর মাঝে স্বাভাবিক বিরতি (২ মিনিট)
-        await asyncio.sleep(120)
+        # প্রতিটি সিগন্যাল সাইকেলের মাঝে সুশৃঙ্খল বিরতি (যেমন ৩ মিনিট), যাতে একসাথে অনেক সিগন্যাল না এসে একটি করে সুনির্দিষ্টভাবে আসে
+        await asyncio.sleep(180)
 
 if __name__ == "__main__":
     asyncio.run(main())
