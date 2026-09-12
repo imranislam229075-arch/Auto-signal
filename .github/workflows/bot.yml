@@ -1,13 +1,9 @@
 name: Run Telegram Bot
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
-
-concurrency:
-  group: run-telegram-bot
-  cancel-in-progress: true
+  push:
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -24,8 +20,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install python-telegram-bot requests pytz
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Run bot script
       run: python bot.py
+      
