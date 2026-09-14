@@ -55,9 +55,6 @@ def send_telegram_message(chat_id, message):
         print(f"Telegram Delivery Error: {e}")
 
 async def check_telegram_commands():
-    """
-    আপনার পার্সোনাল অ্যাকাউন্ট থেকে কমান্ড রিসিভ করে পেয়ার আপডেট করার নিরাপদ লজিক
-    """
     global SELECTED_OTC_PAIRS, telegram_offset
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
     
@@ -75,7 +72,6 @@ async def check_telegram_commands():
                         msg_text = update["message"]["text"].strip()
                         sender_chat_id = str(update["message"]["chat"]["id"])
                         
-                        # সিকিউরিটি চেক: শুধুমাত্র আপনার অ্যাডমিন আইডি থেকে আসা কমান্ড গ্রহণ করবে
                         if sender_chat_id == ADMIN_CHAT_ID:
                             if msg_text.startswith("/setpair"):
                                 parts = msg_text.split(" ", 1)
@@ -141,11 +137,7 @@ async def analyze_quotex_otc_indicators(asset):
     selected_logic = "OTC Momentum Continuation"
     
     try:
-        extra_headers = {
-            "Origin": "https://qxbroker.com",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        async with websockets.connect(QUOTEX_WS_URL, extra_headers=extra_headers, ping_interval=20) as websocket:
+        async with websockets.connect(QUOTEX_WS_URL, ping_interval=20) as websocket:
             auth_payload = json.dumps({"auth": {"email": QUOTEX_EMAIL, "password": QUOTEX_PASSWORD}})
             await websocket.send(f"420{auth_payload}")
             
@@ -188,11 +180,7 @@ async def check_market_outcome(asset, expected_action):
     mtg_win = False
 
     try:
-        extra_headers = {
-            "Origin": "https://qxbroker.com",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        async with websockets.connect(QUOTEX_WS_URL, extra_headers=extra_headers, ping_interval=20) as websocket:
+        async with websockets.connect(QUOTEX_WS_URL, ping_interval=20) as websocket:
             auth_payload = json.dumps({"auth": {"email": QUOTEX_EMAIL, "password": QUOTEX_PASSWORD}})
             await websocket.send(f"420{auth_payload}")
             
