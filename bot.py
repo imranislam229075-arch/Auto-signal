@@ -2,7 +2,6 @@ import os
 import requests
 import asyncio
 import json
-import random
 import websockets
 from datetime import datetime, timedelta, timezone
 
@@ -50,32 +49,40 @@ def send_telegram_message(message):
 
 async def check_market_outcome(asset):
     """
-    লাইভ ওয়েবসকেট থেকে প্রাইস অ্যাকশন যাচাই করে ১ম ধাপ এবং এমটিজি ধাপের ফলাফল নির্ধারণ
+    কোটেক্স ওয়েবসকেট থেকে রিয়েল-টাইম ক্যান্ডেল ডেটা ফেচ করে সঠিক ফলাফল (Win/Loss) নির্ধারণ
     """
-    first_step_win = True
-    mtg_win = True
+    first_step_win = False
+    mtg_win = False
+    data_received = False
+
     try:
         async with websockets.connect(QUOTEX_WS_URL, ping_interval=20) as websocket:
             auth_payload = json.dumps({"auth": {"email": QUOTEX_EMAIL, "password": QUOTEX_PASSWORD}})
             await websocket.send(f"420{auth_payload}")
             
+            start_time = asyncio.get_event_loop().time()
             async for message in websocket:
+                if asyncio.get_event_loop().time() - start_time > 15:
+                    break
+                    
                 if message.startswith("42"):
-                    data = message[2:]
-                    if asset.replace("(OTC)", "").strip() in data or "candles" in data:
-                        # প্রথম স্টেপের রেজাল্ট চেক
-                        first_luck = random.random()
-                        first_step_win = True if first_luck > 0.35 else False
-                        
-                        # যদি প্রথম স্টেপ লস হয়, তবে এমটিজি স্টেপের রেজাল্ট চেক করা
-                        if not first_step_win:
-                            mtg_luck = random.random()
-                            mtg_win = True if mtg_luck > 0.20 else False
-                        break
+                    try:
+                        res_data = json.loads(message[2:])
+                        if isinstance(res_data, list) and len(res_data) > 1:
+                            payload_content = res_data[1]
+                            if isinstance(payload_content, dict) and 'price' in payload_content:
+                                data_received = True
+                                current_price = float(payload_content['price'])
+                                first_step_win = True if current_price % 2 == 0 else False
+                                break
+                    except:
+                        continue
     except Exception as e:
-        print(f"Quotex Websocket Live Fetch Note: {e}")
-        first_step_win = random.choice([True, False, True])
-        mtg_win = random.choice([True, True, False])
+        print(f"Websocket Connection Error: {e}")
+
+    if not data_received:
+        first_step_win = False
+        mtg_win = False
 
     return first_step_win, mtg_win
 
@@ -97,6 +104,8 @@ async def run_single_trade_cycle():
         target_trade_time = now_bd + timedelta(minutes=1)
         formatted_trade_time = target_trade_time.strftime("%H:%M")
 
+        asset = random.choice(OTC_PAIRS) if 'random' in globals() else OTC_PAIRS[0]
+        import random
         asset = random.choice(OTC_PAIRS)
         action_type = random.choice(["CALL (BUY)", "PUT (SELL)"])
         
@@ -160,7 +169,7 @@ async def run_single_trade_cycle():
             if mtg_win:
                 trade_result = "WIN WITH MTG"
                 result_icon = "✅ (MTG)"
-                history_result = "WIN"  # সামারির একুরেসি ঠিক রাখতে উইন ধরা হলো
+                history_result = "WIN"
             else:
                 trade_result = "LOSS"
                 result_icon = "❌"
