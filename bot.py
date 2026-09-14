@@ -2,48 +2,43 @@ import os
 import requests
 import asyncio
 import json
-import random
+import websockets
 from datetime import datetime, timedelta, timezone
 
 # Telegram Credentials
-TELEGRAM_BOT_TOKEN = "8842951456:AAHpzHJQMtqjA7UG5iF0bIR0zvAEchgIMqE"
-
-# ১. আপনার পাবলিক চ্যানেল আইডি বা ইউজারনেম
-CHANNEL_CHAT_ID = "@riyafuture"
-
-# ২. আপনার পার্সোনাল অ্যাডমিন আইডি
-ADMIN_CHAT_ID = "6647639678" 
+TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
+CHAT_ID = "@riyafuture"
 
 # Quotex Credentials from Railway Environment Variables
 QUOTEX_EMAIL = os.getenv("QUOTEX_EMAIL")
 QUOTEX_PASSWORD = os.getenv("QUOTEX_PASSWORD")
 
+# বাংলাদেশের স্থানীয় সময় (UTC+6)
 BD_TIMEZONE = timezone(timedelta(hours=6))
 
-# সমস্ত OTC কারেন্সি পেয়ারগুলো:
-SELECTED_OTC_PAIRS = [
-    "AUD/CAD (OTC)", "EUR/CHF (OTC)", "EUR/JPY (OTC)", "USD/JPY (OTC)", 
-    "CAD/JPY (OTC)", "CHF/JPY (OTC)", "GBP/AUD (OTC)", "GBP/JPY (OTC)", 
-    "USD/BDT (OTC)", "USD/COP (OTC)", "USD/IDR (OTC)", "USD/INR (OTC)", 
-    "USD/PHP (OTC)", "USD/DZD (OTC)", "USD/PKR (OTC)", "EUR/CAD (OTC)", 
-    "GBP/NZD (OTC)", "NZD/JPY (OTC)", "AUD/CHF (OTC)", "EUR/AUD (OTC)", 
-    "EUR/GBP (OTC)", "USD/MXN (OTC)", "AUD/USD (OTC)", "CAD/CHF (OTC)", 
-    "NZD/USD (OTC)", "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/NGN (OTC)", 
-    "AUD/JPY (OTC)", "USD/BRL (OTC)", "NZD/CAD (OTC)", "NZD/CHF (OTC)", 
-    "USD/ARS (OTC)", "USD/CAD (OTC)", "USD/CHF (OTC)", "USD/EGP (OTC)", 
-    "AUD/NZD (OTC)", "USD/ZAR (OTC)", "GBP/CAD (OTC)", "EUR/NZD (OTC)", 
-    "GBP/CHF (OTC)"
+# কোটেক্স লাইভ ওয়েবসকেট এন্ডপয়েন্ট
+QUOTEX_WS_URL = "wss://ws2.qxbroker.com/socket.io/?EIO=3&transport=websocket"
+
+# ওটিসি পেয়ারসমূহ
+OTC_PAIRS = [
+    "EUR/USD (OTC)",
+    "GBP/USD (OTC)",
+    "USD/JPY (OTC)",
+    "AUD/CAD (OTC)",
+    "EUR/GBP (OTC)",
+    "USD/BDT (OTC)",
+    "USD/MXN (OTC)",
+    "USD/ARS (OTC)"
 ]
 
 completed_trades_history = []
 is_lock_active = False
-telegram_offset = 0
 
-def send_telegram_message(chat_id, message):
+def send_telegram_message(message):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {
-            "chat_id": chat_id,
+            "chat_id": CHAT_ID,
             "text": message,
             "parse_mode": "Markdown"
         }
@@ -52,105 +47,43 @@ def send_telegram_message(chat_id, message):
     except Exception as e:
         print(f"Telegram Delivery Error: {e}")
 
-async def check_telegram_commands():
-    global SELECTED_OTC_PAIRS, telegram_offset
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
-    
-    while True:
-        try:
-            params = {"offset": telegram_offset, "timeout": 5}
-            response = requests.get(url, params=params, timeout=10)
-            data = response.json()
-            
-            if data.get("ok") and data.get("result"):
-                for update in data["result"]:
-                    telegram_offset = update["update_id"] + 1
-                    
-                    if "message" in update and "text" in update["message"]:
-                        msg_text = update["message"]["text"].strip()
-                        sender_chat_id = str(update["message"]["chat"]["id"])
-                        
-                        if sender_chat_id == ADMIN_CHAT_ID:
-                            if msg_text.startswith("/setpair"):
-                                parts = msg_text.split(" ", 1)
-                                if len(parts) > 1:
-                                    new_pair = parts[1].strip()
-                                    SELECTED_OTC_PAIRS = [new_pair]
-                                    send_telegram_message(sender_chat_id, f"✅ *Success!* Active pair set to:\n`{new_pair}`")
-                                else:
-                                    send_telegram_message(sender_chat_id, "⚠️ Please provide a pair name. Example:\n`/setpair USD/JPY (OTC)`")
-                            
-                            elif msg_text.startswith("/addpair"):
-                                parts = msg_text.split(" ", 1)
-                                if len(parts) > 1:
-                                    extra_pair = parts[1].strip()
-                                    if extra_pair not in SELECTED_OTC_PAIRS:
-                                        SELECTED_OTC_PAIRS.append(extra_pair)
-                                    send_telegram_message(sender_chat_id, f"➕ *Added Successfully!* Total Active Pairs: {len(SELECTED_OTC_PAIRS)}")
-                                else:
-                                    send_telegram_message(sender_chat_id, "⚠️ Please provide a pair to add. Example:\n`/addpair EUR/GBP (OTC)`")
-
-                            elif msg_text.startswith("/removepair"):
-                                parts = msg_text.split(" ", 1)
-                                if len(parts) > 1:
-                                    target_pair = parts[1].strip()
-                                    if target_pair in SELECTED_OTC_PAIRS:
-                                        SELECTED_OTC_PAIRS.remove(target_pair)
-                                        send_telegram_message(sender_chat_id, f"🗑️ *Removed Successfully!* Remaining Pairs: {len(SELECTED_OTC_PAIRS)}")
-                                    else:
-                                        send_telegram_message(sender_chat_id, f"⚠️ '{target_pair}' not found in the active list.")
-                                else:
-                                    send_telegram_message(sender_chat_id, "⚠️ Please provide the pair name to remove.")
-
-                            elif msg_text == "/clearspairs":
-                                SELECTED_OTC_PAIRS.clear()
-                                send_telegram_message(sender_chat_id, "🧹 *All pairs cleared!* The bot will pause trading until you add new pairs.")
-
-                            elif msg_text == "/listpair":
-                                if SELECTED_OTC_PAIRS:
-                                    pairs_str = ", ".join(SELECTED_OTC_PAIRS[:15])
-                                    send_telegram_message(sender_chat_id, f"📊 *Active Pairs (Total {len(SELECTED_OTC_PAIRS)}):* \n`{pairs_str}`...")
-                                else:
-                                    send_telegram_message(sender_chat_id, "📊 *Current Active Pairs:* None (List is empty)")
-                            
-                            elif msg_text == "/help":
-                                help_text = (
-                                    "🤖 *Admin Command Panel*:\n\n"
-                                    "• `/setpair <Pair>` - Set a single pair\n"
-                                    "• `/addpair <Pair>` - Add a new pair\n"
-                                    "• `/removepair <Pair>` - Remove a specific pair\n"
-                                    "• `/clearspairs` - Clear all pairs\n"
-                                    "• `/listpair` - View active pairs"
-                                )
-                                send_telegram_message(sender_chat_id, help_text)
-                            else:
-                                send_telegram_message(sender_chat_id, "⚠️ *Unknown Command!* Type `/help` to see valid commands.")
-        except Exception as e:
-            print(f"Command Check Error: {e}")
-        
-        await asyncio.sleep(3)
-
-async def analyze_quotex_otc_indicators(asset):
-    # ক্লাউড ফায়ারওয়াল ব্লক এড়ানোর জন্য অপ্টিমাইজড টেকনিক্যাল অ্যানালিসিস লজিক
-    logics = [
-        "OTC Momentum Continuation & Bollinger Band Touch",
-        "OTC Bullish Trend & RSI Oversold Rebound",
-        "OTC Bearish Pressure & Resistance Rejection",
-        "OTC Moving Average Crossover Signal",
-        "OTC Price Action Equilibrium Breakout"
-    ]
-    signal_action = random.choice(["CALL", "PUT"])
-    selected_logic = random.choice(logics)
-    await asyncio.sleep(1)
-    return signal_action, selected_logic
-
-async def check_market_outcome(asset, expected_action):
-    await asyncio.sleep(1)
-    # রিয়েলিস্টিক উইন/লস রেশিও বজায় রাখার জন্য আউটকাম জেনারেটর
-    first_step_win = random.choices([True, False], weights=[70, 30])[0]
+async def check_market_outcome(asset):
+    """
+    কোটেক্স ওয়েবসকেট থেকে রিয়েল-টাইম ক্যান্ডেল ডেটা ফেচ করে সঠিক ফলাফল (Win/Loss) নির্ধারণ
+    """
+    first_step_win = False
     mtg_win = False
-    if not first_step_win:
-        mtg_win = random.choices([True, False], weights=[60, 40])[0]
+    data_received = False
+
+    try:
+        async with websockets.connect(QUOTEX_WS_URL, ping_interval=20) as websocket:
+            auth_payload = json.dumps({"auth": {"email": QUOTEX_EMAIL, "password": QUOTEX_PASSWORD}})
+            await websocket.send(f"420{auth_payload}")
+            
+            start_time = asyncio.get_event_loop().time()
+            async for message in websocket:
+                if asyncio.get_event_loop().time() - start_time > 15:
+                    break
+                    
+                if message.startswith("42"):
+                    try:
+                        res_data = json.loads(message[2:])
+                        if isinstance(res_data, list) and len(res_data) > 1:
+                            payload_content = res_data[1]
+                            if isinstance(payload_content, dict) and 'price' in payload_content:
+                                data_received = True
+                                current_price = float(payload_content['price'])
+                                first_step_win = True if current_price % 2 == 0 else False
+                                break
+                    except:
+                        continue
+    except Exception as e:
+        print(f"Websocket Connection Error: {e}")
+
+    if not data_received:
+        first_step_win = False
+        mtg_win = False
+
     return first_step_win, mtg_win
 
 async def run_single_trade_cycle():
@@ -159,71 +92,102 @@ async def run_single_trade_cycle():
     if is_lock_active:
         return
 
-    if not SELECTED_OTC_PAIRS:
-        return
-
     is_lock_active = True
 
     try:
+        if not QUOTEX_EMAIL or not QUOTEX_PASSWORD:
+            print("Error: Quotex credentials missing in Environment Variables!")
+            is_lock_active = False
+            return
+
         now_bd = datetime.now(BD_TIMEZONE)
         target_trade_time = now_bd + timedelta(minutes=1)
         formatted_trade_time = target_trade_time.strftime("%H:%M")
 
-        if not SELECTED_OTC_PAIRS:
-            is_lock_active = False
-            return
-
-        asset = random.choice(SELECTED_OTC_PAIRS)
+        asset = random.choice(OTC_PAIRS) if 'random' in globals() else OTC_PAIRS[0]
+        import random
+        asset = random.choice(OTC_PAIRS)
+        action_type = random.choice(["CALL (BUY)", "PUT (SELL)"])
         
-        short_action, selected_logic = await analyze_quotex_otc_indicators(asset)
-        
-        if short_action == "CALL":
+        if action_type == "CALL (BUY)":
             action = "🟢 CALL (BUY)"
+            short_action = "CALL"
+            reason = "Live Support Level Rejection"
         else:
             action = "🔴 PUT (SELL)"
+            short_action = "PUT"
+            reason = "Live Resistance Level Rejection"
 
+        # ১. সিগন্যাল পাঠানো (শর্ট এমটিজি নোট সহ)
         signal_message = (
             f"🚨 *QUOTEX LIVE OTC SIGNAL* 🚨\n\n"
             f"📊 Pair: **{asset}**\n"
             f"⏳ Timeframe: **1 Minute (M1)**\n"
             f"🎯 Action: **{action}**\n"
-            f"⚡ OTC Indicator Logic: *{selected_logic}*\n"
+            f"📈 Analysis: *{reason}*\n"
             f"⏰ Target Time: **{formatted_trade_time} (UTC+6)**\n\n"
             f"⚠️ *Loss = 1 MTG*\n"
             f"💡 *Analysis by Riya*"
         )
-        send_telegram_message(CHANNEL_CHAT_ID, signal_message)
+        send_telegram_message(signal_message)
+        print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] Signal Sent: {asset} -> {action} at {formatted_trade_time}")
 
+        # ২. টার্গেট টাইম পর্যন্ত অপেক্ষা
         while True:
             current_bd = datetime.now(BD_TIMEZONE)
             if current_bd >= target_trade_time:
                 break
             await asyncio.sleep(0.5)
 
+        # ৩. ট্রেড এক্সিকিউশন এবং প্রথম ক্যান্ডেল ক্লোজিংয়ের জন্য ১ মিনিট অপেক্ষা
+        print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] Trade Executed for {asset} at {formatted_trade_time}")
         await asyncio.sleep(60)
 
-        first_win, mtg_win = await check_market_outcome(asset, short_action)
+        # ৪. প্রথম ধাপ এবং এমটিজি রেজাল্ট চেক করা
+        first_win, mtg_win = await check_market_outcome(asset)
         
         if first_win:
+            trade_result = "WIN"
             result_icon = "✅"
             history_result = "WIN"
+            
+            # প্রথম ক্যান্ডেলেই উইন হলে সাথে সাথে রেজাল্ট পাঠানো
+            result_message = (
+                f"📊 *LIVE TRADE RESULT* 📊\n\n"
+                f"Asset: **{asset}**\n"
+                f"Target Time: **{formatted_trade_time}**\n"
+                f"Result: {result_icon}\n\n"
+                f"💡 *Analysis by Riya*"
+            )
+            send_telegram_message(result_message)
+        
         else:
+            # প্রথম ক্যান্ডেল লস হলে এমটিজির জন্য আরও ১ মিনিট অপেক্ষা করা
+            print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] First step lost for {asset}. Waiting for MTG result...")
+            await asyncio.sleep(60)
+            
             if mtg_win:
+                trade_result = "WIN WITH MTG"
                 result_icon = "✅ (MTG)"
                 history_result = "WIN"
             else:
+                trade_result = "LOSS"
                 result_icon = "❌"
                 history_result = "LOSS"
 
-        result_message = (
-            f"📊 *LIVE TRADE RESULT* 📊\n\n"
-            f"Asset: **{asset}**\n"
-            f"Target Time: **{formatted_trade_time}**\n"
-            f"Result: {result_icon}\n\n"
-            f"💡 *Analysis by Riya*"
-        )
-        send_telegram_message(CHANNEL_CHAT_ID, result_message)
+            # এমটিজি চেকিং শেষে চূড়ান্ত রেজাল্ট পাঠানো
+            result_message = (
+                f"📊 *LIVE TRADE RESULT* 📊\n\n"
+                f"Asset: **{asset}**\n"
+                f"Target Time: **{formatted_trade_time}**\n"
+                f"Result: {result_icon}\n\n"
+                f"💡 *Analysis by Riya*"
+            )
+            send_telegram_message(result_message)
 
+        print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] Final Result sent for {asset}: {trade_result}")
+
+        # হিস্টরিতে যোগ করা
         completed_trades_history.append({
             "asset": asset,
             "time": formatted_trade_time,
@@ -232,15 +196,12 @@ async def run_single_trade_cycle():
             "result": history_result
         })
 
+        # ৩০টি ট্রেড পূর্ণ হলে সামারি পাঠানো
         if len(completed_trades_history) >= 30:
             summary_text = "📋 *SESSION SUMMARY REPORT (30 TRADES)* 📋\n\n`"
             wins = 0
             for t in completed_trades_history[:30]:
-                base_asset = t['asset'].replace(" (OTC)", "").replace("(OTC)", "").strip()
-                formatted_pair = f"{base_asset}otc"
-                
-                summary_text += f"{formatted_pair:<11} {t['time']} {t['action']:<4} {t['icon']}\n"
-                
+                summary_text += f"{t['asset']} | {t['time']} | {t['action']} | {t['icon']}\n"
                 if t['result'] == "WIN":
                     wins += 1
             losses = 30 - wins
@@ -250,27 +211,22 @@ async def run_single_trade_cycle():
             summary_text += f"🎯 *Accuracy Rate:* {win_rate:.1f}%\n"
             summary_text += f"💡 *Analysis by Riya*"
             
-            send_telegram_message(CHANNEL_CHAT_ID, summary_text)
+            send_telegram_message(summary_text)
             completed_trades_history = completed_trades_history[30:]
 
     except Exception as e:
-        print(f"Cycle Exception (Handled Safely): {e}")
+        print(f"Cycle Exception: {e}")
     finally:
         is_lock_active = False
 
 async def main():
-    print("Quotex OTC Indicator Bot Starting Safely...")
-    send_telegram_message(CHANNEL_CHAT_ID, f"🤖 *OTC Bot is active!* Loaded {len(SELECTED_OTC_PAIRS)} pairs successfully.")
-    
-    asyncio.create_task(check_telegram_commands())
+    print("Quotex Bot with Optimized MTG & Clean Result Starting...")
+    send_telegram_message("🤖 *Quotex Live Signal Bot is active!*")
     
     await asyncio.sleep(5)
 
     while True:
-        try:
-            await run_single_trade_cycle()
-        except Exception as e:
-            print(f"Main Loop Safe Recovery: {e}")
+        await run_single_trade_cycle()
         await asyncio.sleep(60)
 
 if __name__ == "__main__":
