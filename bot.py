@@ -109,7 +109,7 @@ async def run_single_trade_cycle():
             short_action = "PUT"
             reason = "Live Resistance Level Rejection"
 
-        # ১. সিগন্যাল পাঠানো (সবচেয়ে শর্ট এমটিজি নোট সহ)
+        # ১. সিগন্যাল পাঠানো (শর্ট এমটিজি নোট সহ)
         signal_message = (
             f"🚨 *QUOTEX LIVE OTC SIGNAL* 🚨\n\n"
             f"📊 Pair: **{asset}**\n"
@@ -134,7 +134,7 @@ async def run_single_trade_cycle():
         print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] Trade Executed for {asset} at {formatted_trade_time}")
         await asyncio.sleep(60)
 
-        # ৪. প্রথম ধাপের রেজাল্ট চেক করা
+        # ৪. প্রথম ধাপ এবং এমটিজি রেজাল্ট চেক করা
         first_win, mtg_win = await check_market_outcome(asset)
         
         if first_win:
@@ -142,7 +142,7 @@ async def run_single_trade_cycle():
             result_icon = "✅"
             history_result = "WIN"
             
-            # রেজাল্ট মেসেজ পাঠানো (প্রথম স্টেপ উইন হলে সাথে সাথে)
+            # প্রথম ক্যান্ডেলেই উইন হলে সাথে সাথে রেজাল্ট পাঠানো
             result_message = (
                 f"📊 *LIVE TRADE RESULT* 📊\n\n"
                 f"Asset: **{asset}**\n"
@@ -153,7 +153,7 @@ async def run_single_trade_cycle():
             send_telegram_message(result_message)
         
         else:
-            # প্রথম স্টেপ লস হলে এমটিজি (পরবর্তী ক্যান্ডেল) এর জন্য আরও ১ মিনিট অপেক্ষা করা
+            # প্রথম ক্যান্ডেল লস হলে এমটিজির জন্য আরও ১ মিনিট অপেক্ষা করা
             print(f"[{datetime.now(BD_TIMEZONE).strftime('%H:%M:%S')}] First step lost for {asset}. Waiting for MTG result...")
             await asyncio.sleep(60)
             
@@ -166,7 +166,7 @@ async def run_single_trade_cycle():
                 result_icon = "❌"
                 history_result = "LOSS"
 
-            # এমটিজি রেজাল্ট মেসেজ পাঠানো
+            # এমটিজি চেকিং শেষে চূড়ান্ত রেজাল্ট পাঠানো
             result_message = (
                 f"📊 *LIVE TRADE RESULT* 📊\n\n"
                 f"Asset: **{asset}**\n"
@@ -211,7 +211,7 @@ async def run_single_trade_cycle():
         is_lock_active = False
 
 async def main():
-    print("Quotex Bot with Smart MTG & Clean Result Starting...")
+    print("Quotex Bot with Optimized MTG & Clean Result Starting...")
     send_telegram_message("🤖 *Quotex Live Signal Bot is active!*")
     
     await asyncio.sleep(5)
