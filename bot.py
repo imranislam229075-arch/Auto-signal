@@ -109,7 +109,7 @@ async def run_single_trade_cycle():
             short_action = "PUT"
             reason = "Live Resistance Level Rejection"
 
-        # ১. সিগন্যাল পাঠানো (এমটিজি নোট সহ)
+        # ১. সিগন্যাল পাঠানো (সবচেয়ে শর্ট এমটিজি নোট সহ)
         signal_message = (
             f"🚨 *QUOTEX LIVE OTC SIGNAL* 🚨\n\n"
             f"📊 Pair: **{asset}**\n"
@@ -117,7 +117,7 @@ async def run_single_trade_cycle():
             f"🎯 Action: **{action}**\n"
             f"📈 Analysis: *{reason}*\n"
             f"⏰ Target Time: **{formatted_trade_time} (UTC+6)**\n\n"
-            f"⚠️ *If ITM fails, use Single MTG (1 Step)*\n"
+            f"⚠️ *Loss = 1 MTG*\n"
             f"💡 *Analysis by Riya*"
         )
         send_telegram_message(signal_message)
