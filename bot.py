@@ -6,8 +6,8 @@ import random
 import websockets
 from datetime import datetime, timedelta, timezone
 
-# Telegram Credentials
-TELEGRAM_BOT_TOKEN = "8543793515:AAEvGOpD2Me8BdXOUNxoCczIYEs3D2r0xlc"
+# Telegram Credentials (Updated with your new bot token)
+TELEGRAM_BOT_TOKEN = "8842951456:AAHpzHJQMtqjA7UG5iF0bIR0zvAEchgIMqE"
 
 # ১. আপনার পাবলিক চ্যানেল আইডি বা ইউজারনেম (যেখানে সিগন্যাল এবং সামারি যাবে)
 CHANNEL_CHAT_ID = "@riyafuture"
@@ -22,8 +22,20 @@ QUOTEX_PASSWORD = os.getenv("QUOTEX_PASSWORD")
 BD_TIMEZONE = timezone(timedelta(hours=6))
 QUOTEX_WS_URL = "wss://ws2.qxbroker.com/socket.io/?EIO=3&transport=websocket"
 
-# কোনো ডিফল্ট পেয়ার রাখা হয়নি (লিস্ট সম্পূর্ণ খালি থাকবে)
-SELECTED_OTC_PAIRS = []
+# আপনার স্ক্রিনশট থেকে নেওয়া সমস্ত OTC কারেন্সি পেয়ারগুলো এখানে ডিফল্টভাবে যুক্ত করে দেওয়া হলো:
+SELECTED_OTC_PAIRS = [
+    "AUD/CAD (OTC)", "EUR/CHF (OTC)", "EUR/JPY (OTC)", "USD/JPY (OTC)", 
+    "CAD/JPY (OTC)", "CHF/JPY (OTC)", "GBP/AUD (OTC)", "GBP/JPY (OTC)", 
+    "USD/BDT (OTC)", "USD/COP (OTC)", "USD/IDR (OTC)", "USD/INR (OTC)", 
+    "USD/PHP (OTC)", "USD/DZD (OTC)", "USD/PKR (OTC)", "EUR/CAD (OTC)", 
+    "GBP/NZD (OTC)", "NZD/JPY (OTC)", "AUD/CHF (OTC)", "EUR/AUD (OTC)", 
+    "EUR/GBP (OTC)", "USD/MXN (OTC)", "AUD/USD (OTC)", "CAD/CHF (OTC)", 
+    "NZD/USD (OTC)", "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/NGN (OTC)", 
+    "AUD/JPY (OTC)", "USD/BRL (OTC)", "NZD/CAD (OTC)", "NZD/CHF (OTC)", 
+    "USD/ARS (OTC)", "USD/CAD (OTC)", "USD/CHF (OTC)", "USD/EGP (OTC)", 
+    "AUD/NZD (OTC)", "USD/ZAR (OTC)", "GBP/CAD (OTC)", "EUR/NZD (OTC)", 
+    "GBP/CHF (OTC)"
+]
 
 completed_trades_history = []
 is_lock_active = False
@@ -80,7 +92,7 @@ async def check_telegram_commands():
                                     extra_pair = parts[1].strip()
                                     if extra_pair not in SELECTED_OTC_PAIRS:
                                         SELECTED_OTC_PAIRS.append(extra_pair)
-                                    send_telegram_message(sender_chat_id, f"➕ *Added Successfully!* Current Active Pairs:\n`{', '.join(SELECTED_OTC_PAIRS)}`")
+                                    send_telegram_message(sender_chat_id, f"➕ *Added Successfully!* Total Active Pairs: {len(SELECTED_OTC_PAIRS)}")
                                 else:
                                     send_telegram_message(sender_chat_id, "⚠️ Please provide a pair to add. Example:\n`/addpair EUR/GBP (OTC)`")
 
@@ -90,7 +102,7 @@ async def check_telegram_commands():
                                     target_pair = parts[1].strip()
                                     if target_pair in SELECTED_OTC_PAIRS:
                                         SELECTED_OTC_PAIRS.remove(target_pair)
-                                        send_telegram_message(sender_chat_id, f"🗑️ *Removed Successfully!* Current Active Pairs:\n`{', '.join(SELECTED_OTC_PAIRS)}`" if SELECTED_OTC_PAIRS else "🗑️ Removed! Now the pair list is empty.")
+                                        send_telegram_message(sender_chat_id, f"🗑️ *Removed Successfully!* Remaining Pairs: {len(SELECTED_OTC_PAIRS)}")
                                     else:
                                         send_telegram_message(sender_chat_id, f"⚠️ '{target_pair}' not found in the active list.")
                                 else:
@@ -102,23 +114,22 @@ async def check_telegram_commands():
 
                             elif msg_text == "/listpair":
                                 if SELECTED_OTC_PAIRS:
-                                    pairs_str = ", ".join(SELECTED_OTC_PAIRS)
-                                    send_telegram_message(sender_chat_id, f"📊 *Current Active Pairs:* \n`{pairs_str}`")
+                                    pairs_str = ", ".join(SELECTED_OTC_PAIRS[:15]) # প্রথম ১৫টি দেখাবে যাতে মেসেজ বড় না হয়
+                                    send_telegram_message(sender_chat_id, f"📊 *Active Pairs (Total {len(SELECTED_OTC_PAIRS)}):* \n`{pairs_str}`...")
                                 else:
                                     send_telegram_message(sender_chat_id, "📊 *Current Active Pairs:* None (List is empty)")
                             
                             elif msg_text == "/help":
                                 help_text = (
                                     "🤖 *Admin Command Panel*:\n\n"
-                                    "• `/setpair <Pair>` - Set a single pair (clears previous ones)\n"
-                                    "• `/addpair <Pair>` - Add a new pair to the list\n"
+                                    "• `/setpair <Pair>` - Set a single pair\n"
+                                    "• `/addpair <Pair>` - Add a new pair\n"
                                     "• `/removepair <Pair>` - Remove a specific pair\n"
                                     "• `/clearspairs` - Clear all pairs\n"
-                                    "• `/listpair` - View currently active pairs"
+                                    "• `/listpair` - View active pairs"
                                 )
                                 send_telegram_message(sender_chat_id, help_text)
                             else:
-                                # আপনি ভুল কোনো টেক্সট বা কমান্ড পাঠালে বট ক্র্যাশ না করে রিমাইন্ড করে দেবে
                                 send_telegram_message(sender_chat_id, "⚠️ *Unknown Command!* Type `/help` to see valid commands.")
         except Exception as e:
             print(f"Command Check Error: {e}")
@@ -215,7 +226,6 @@ async def run_single_trade_cycle():
     if is_lock_active:
         return
 
-    # পেয়ার লিস্ট খালি থাকলে বা রিসেট করা হলে ট্রেড সাইকেল নিরাপদে পজ থাকবে
     if not SELECTED_OTC_PAIRS:
         return
 
@@ -231,7 +241,6 @@ async def run_single_trade_cycle():
         target_trade_time = now_bd + timedelta(minutes=1)
         formatted_trade_time = target_trade_time.strftime("%H:%M")
 
-        # সেফটি চেক: পেয়ার লিস্ট যদি হঠাৎ রিসেট বা খালি করা হয়
         if not SELECTED_OTC_PAIRS:
             is_lock_active = False
             return
@@ -323,7 +332,7 @@ async def run_single_trade_cycle():
 
 async def main():
     print("Quotex OTC Indicator Bot Starting Safely...")
-    send_telegram_message(CHANNEL_CHAT_ID, "🤖 *OTC Bot is active!* Please set trading pairs from your admin inbox using `/setpair` or `/addpair` command.")
+    send_telegram_message(CHANNEL_CHAT_ID, f"🤖 *OTC Bot is active!* Loaded {len(SELECTED_OTC_PAIRS)} pairs successfully.")
     
     asyncio.create_task(check_telegram_commands())
     
